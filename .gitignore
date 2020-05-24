@@ -130,3 +130,12 @@ dmypy.json
 
 # Mat files
 *.mat
+*.csv
+
+# C files
+*.txt
+*.exe
+*.h
+*.hpp
+*.d
+*.o
