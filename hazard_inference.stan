@@ -7,8 +7,21 @@ functions {
 	  return y;
 	}
 	
-	vector[] test(vector[] input) {
-		return input;
+	vector find_rmean(int N, real lambda, real m, real c, 
+            real mu0, vector xprev, vector stimdur, real sigma_x) {
+		vector[N] xc = lambda * mu0 + (1 - lambda) * xprev;
+		vector[N] hazard_numerator;
+		vector[N] hazard_denominator;
+		vector[N] hazard;
+		vector[N] rmean;
+		
+		for (n in 1:N) {
+			hazard_numerator[n] = normal_lpdf(stimdur[n] | xc[n], sigma_x);
+			hazard_denominator[n] = log(1 - normal_cdf(stimdur[n], xc[n], sigma_x));
+			hazard[n] = - hazard_numerator[n] + hazard_denominator[n];
+			rmean[n] = hazard[n] * m + c;
+		}
+		return rmean;
 	}
 }
 
@@ -33,19 +46,20 @@ parameters {
 }
 
 transformed parameters {
-	vector[N] xc = lambda * mu0 + (1 - lambda) * xprev;
-	vector[N] hazard_numerator;
-	vector[N] hazard_denominator;
-	vector[N] hazard;
-	vector[N] rmean;
-	
-	for (n in 1:N) {
-		hazard_numerator[n] = normal_lpdf(stimdur[n] | xc[n], sigma_x);
-		hazard_denominator[n] = log(1 - normal_cdf(stimdur[n], xc[n], sigma_x));
-			//print(stimdur[n], " ", xc[n], " ", sigma_x);
-		hazard[n] = - hazard_numerator[n] + hazard_denominator[n];
-		rmean[n] = hazard[n] * m + c;
-	}
+    vector[N] rmean = find_rmean(N, lambda, m, c, mu0, xprev, stimdur, sigma_x);
+	//vector[N] xc = lambda * mu0 + (1 - lambda) * xprev;
+	//vector[N] hazard_numerator;
+	//vector[N] hazard_denominator;
+	//vector[N] hazard;
+	//vector[N] rmean;
+	//
+	//for (n in 1:N) {
+	//	hazard_numerator[n] = normal_lpdf(stimdur[n] | xc[n], sigma_x);
+	//	hazard_denominator[n] = log(1 - normal_cdf(stimdur[n], xc[n], sigma_x));
+	//		//print(stimdur[n], " ", xc[n], " ", sigma_x);
+	//	hazard[n] = - hazard_numerator[n] + hazard_denominator[n];
+	//	rmean[n] = hazard[n] * m + c;
+	//}
 }
 
 
