@@ -17,7 +17,7 @@ functions {
 		
 		for (n in 1:N) {
 			hazard_numerator[n] = normal_lpdf(stimdur[n] | xc[n], sigma_x);
-			hazard_denominator[n] = log(1 - normal_cdf(stimdur[n], xc[n], sigma_x));
+			hazard_denominator[n] = log(max([1 - normal_cdf(stimdur[n], xc[n], sigma_x), 10^-10]));
 			hazard[n] = - hazard_numerator[n] + hazard_denominator[n];
 			rmean[n] = hazard[n] * m + c;
 		}
@@ -27,12 +27,12 @@ functions {
 
 data {
 	int N;
+	int N_ppc;
 	vector[N] stimdur;
 	vector[N] xprev;
 	vector[N] rt;
-	//vector[N] stimdur_pcc;
-	//vector[N] xprev_pcc;
-	
+	vector[N_ppc] stimdur_ppc;
+	vector[N_ppc] xprev_ppc;
 	real mu0;
 }
 
@@ -47,19 +47,6 @@ parameters {
 
 transformed parameters {
     vector[N] rmean = find_rmean(N, lambda, m, c, mu0, xprev, stimdur, sigma_x);
-	//vector[N] xc = lambda * mu0 + (1 - lambda) * xprev;
-	//vector[N] hazard_numerator;
-	//vector[N] hazard_denominator;
-	//vector[N] hazard;
-	//vector[N] rmean;
-	//
-	//for (n in 1:N) {
-	//	hazard_numerator[n] = normal_lpdf(stimdur[n] | xc[n], sigma_x);
-	//	hazard_denominator[n] = log(1 - normal_cdf(stimdur[n], xc[n], sigma_x));
-	//		//print(stimdur[n], " ", xc[n], " ", sigma_x);
-	//	hazard[n] = - hazard_numerator[n] + hazard_denominator[n];
-	//	rmean[n] = hazard[n] * m + c;
-	//}
 }
 
 
@@ -73,4 +60,10 @@ model {
 	rt ~ normal(rmean, sigma_r);
 }
 
-
+generated quantities {
+	vector[N_ppc] rmean_ppc = find_rmean(N, lambda, m, c, mu0, xprev_ppc, stimdur_ppc, sigma_x);
+	vector[N_ppc] rt_ppc;
+	for (i in 1:N_ppc) {
+		rt_ppc[i] = normal_rng(rmean_ppc[i], sigma_r);
+	}
+}
