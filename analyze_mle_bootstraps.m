@@ -2,13 +2,14 @@
 % Nhat Le, 05.27.2020
 
 %% Load results
-load mle_bootstraps.mat
+load mle_bootstraps_split6.mat
+Nsess = numel(splits);
 figure;
-lambda_arr = zeros(1, 8);
-lowers = zeros(1, 8);
-uppers = zeros(1, 8);
-lambda_cell = cell(1, 8);
-for i = 1:8
+lambda_arr = zeros(1, Nsess);
+lowers = zeros(1, Nsess);
+uppers = zeros(1, Nsess);
+lambda_cell = cell(1, Nsess);
+for i = 1:Nsess
     flags = flags_all{i};
     params = params_all{i};
 
@@ -28,15 +29,34 @@ for i = 1:8
     lowers(i) = prctile(good_lambdas, 5);
     uppers(i) = prctile(good_lambdas, 95);
     % Scatter
-    subplot(2, 4, i);
-    scatter(params1(:, 1), params1(:, 2), 'b');
+%     subplot(2, 4, i);
+%     scatter(params1(:, 1), params1(:, 2), 'b');
 end
 
 figure;
-errorbar(1:8, lambda_arr, lambda_arr - lowers);
+errorbar(1:Nsess, lambda_arr, lambda_arr - lowers);
 %hold on
 %scatter(params0(:, 1), params0(:, 3), 'r');
 %scatter(params2(:, 1), params2(:, 2), 'k');
+
+%%
+load mle_bootstraps_static_dynamic.mat
+llmean_static = [];
+llmean_dynamic = [];
+for i = 1:8
+    llvalStatic = llvals_static{i};
+    llvalDyanmic = llvals_dynamic{i};
+    flagStatic = flags_static{i};
+    flagDynamic = flags_dynamic{i};
+    llmean_static(i) = mean(llvalStatic(flagStatic == 1));
+    llmean_dynamic(i) = mean(llvalDyanmic(flagDynamic == 1));
+    
+end
+
+
+
+
+
 
 
 

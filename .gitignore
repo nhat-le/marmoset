@@ -144,4 +144,4 @@ dmypy.json
 *.pkl
 *.dll
 dynamic_inference*
-
+*.fig

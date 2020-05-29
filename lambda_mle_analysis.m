@@ -58,23 +58,108 @@ end
 
 close(f);
 %% Perform the analysis for all splits...
-params_all = cell(1, numel(splits));
-flags_all = cell(1, numel(splits));
+params_static = cell(1, numel(splits));
+flags_static = cell(1, numel(splits));
+llvals_static = cell(1, numel(splits));
+
+params_dynamic = cell(1, numel(splits));
+flags_dynamic = cell(1, numel(splits));
+llvals_dynamic = cell(1, numel(splits));
+
 for i = 1:numel(splits)
     fprintf('Doing split %d of %d...\n', i, numel(splits));
-    [params, flags] = find_mle_bootstraps(splits{i}, RT, SD, Nbootstraps, x0, mu0);
+    [params, flags, llvals] = find_mle_bootstraps(splits{i}, RT, SD, Nbootstraps, x0, mu0, 0);
+    params_dynamic{i} = params;
+    flags_dynamic{i} = flags;
+    llvals_dynamic{i} = llvals;
+    
+    [params, flags, llvals] = find_mle_bootstraps(splits{i}, RT, SD, Nbootstraps, x0, mu0, 1);
+    params_static{i} = params;
+    flags_static{i} = flags;
+    llvals_static{i} = llvals;
+end
+
+% save('mle_bootstraps_split6.mat', 'params_all', 'flags_all', 'splits');
+save('mle_bootstraps_static_dynamic.mat', 'params_dynamic', 'flags_dynamic',...
+    'llvals_dynamic', 'params_static', 'flags_static', 'llvals_static', 'splits');
+%%
+params_all = cell(1, numel(splits));
+flags_all = cell(1, numel(splits));
+for i = 2
+    fprintf('Doing split %d of %d...\n', i, numel(splits));
+    [params, flags, llvals] = find_mle_bootstraps(splits{i}, RT, SD, Nbootstraps, x0, mu0, 0);
     params_all{i} = params;
     flags_all{i} = flags;
 end
 
-save('mle_bootstraps.mat', 'params_all', 'flags_all', 'splits');
+
+
+function [fit_params, flags, llvals] = find_mle_bootstraps_static_dynamic(split, rtdata, sddata, ...
+    Nbootstraps, x0, mu0, static)
+RTSingle = cell2mat(rtdata(split));
+SDSingle = cell2mat(sddata(split));
+xprev = SDSingle(1,:);
+sd = SDSingle(2,:);
+rt = RTSingle(2,:);
+
+% Filter nagative reaction times
+sd_filt = sd(rt > 0);
+xprev_filt = xprev(rt > 0);
+rt_filt = rt(rt > 0);
+
+data = [xprev_filt; rt_filt; sd_filt];
+
+bootstraps = get_bootstrap_samples(data, Nbootstraps);
+
+%%
+% Doing bootstrap
+fit_paramsS = nan(Nbootstraps, 5);
+flagsS = nan(Nbootstraps, 1);
+llvalsS = nan(Nbootstraps, 1); % log-likelihood
+
+fit_paramsD = nan(Nbootstraps, 5);
+flagsD = nan(Nbootstraps, 1);
+llvalsD = nan(Nbootstraps, 1); % log-likelihood
+
+options = optimset('MaxFunEvals', 3000);
+
+f = waitbar(0, 'Fitting...');
+for i = 1:Nbootstraps
+    waitbar(i / Nbootstraps, f, 'Fitting...');
+    sample = bootstraps{i};
+    
+    [xs, fvals, exits] = ...
+        fminsearch(@(x) optim_function_static(x, sample(1,:), sample(2,:), sample(3,:), mu0), ...
+            x0, options);
+    
+    [xd, fvald, exitd] = ...
+        fminsearch(@(x) optim_function(x, sample(1,:), sample(2,:), sample(3,:), mu0), ...
+            x0, options);
+
+    fit_paramsS(i, :) = xs;
+    flagsS(i) = exits;
+    llvalsS(i) = -fvals;
+    
+    fit_paramsD(i, :) = xs;
+    flagsD(i) = exits;
+    llvalsD(i) = -fvals;
+end
+
+close(f);
+
+
+end
 
 
 
 
 
-function [fit_params, flags] = find_mle_bootstraps(split, rtdata, sddata, ...
-    Nbootstraps, x0, mu0)
+
+
+
+
+function [fit_params, flags, llvals] = find_mle_bootstraps(split, rtdata, sddata, ...
+    Nbootstraps, x0, mu0, static)
 RTSingle = cell2mat(rtdata(split));
 SDSingle = cell2mat(sddata(split));
 xprev = SDSingle(1,:);
@@ -94,23 +179,43 @@ bootstraps = get_bootstrap_samples(data, Nbootstraps);
 % Doing bootstrap
 fit_params = nan(Nbootstraps, 5);
 flags = nan(Nbootstraps, 1);
+llvals = nan(Nbootstraps, 1); % log-likelihood
 options = optimset('MaxFunEvals', 3000);
 
 f = waitbar(0, 'Fitting...');
 for i = 1:Nbootstraps
     waitbar(i / Nbootstraps, f, 'Fitting...');
     sample = bootstraps{i};
-    [x, ~, exit] = ...
-        fminsearch(@(x) optim_function(x, sample(1,:), sample(2,:), sample(3,:), mu0), ...
-            x0, options);
+    if static
+        [x, fval, exit] = ...
+            fminsearch(@(x) optim_function_static(x, sample(1,:), sample(2,:), sample(3,:), mu0), ...
+                x0, options);
+    else
+        [x, fval, exit] = ...
+            fminsearch(@(x) optim_function(x, sample(1,:), sample(2,:), sample(3,:), mu0), ...
+                x0, options);
+    end
     fit_params(i, :) = x;
     flags(i) = exit;
+    llvals(i) = -fval;
 end
 
 close(f);
 
 
 end
+
+
+function L = optim_function_static(x, xprev, rt, sd, mu0)
+lambda = 1;
+sigma_x = x(2);
+sigma_r = x(3);
+m = x(4);
+c = x(5);
+L = -obs_log_likelihood(xprev, rt, sd, lambda, mu0, sigma_x, sigma_r, m, c);
+
+end
+
 
     
 function L = optim_function(x, xprev, rt, sd, mu0)
